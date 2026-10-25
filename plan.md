@@ -1,5 +1,9 @@
 # Plan: Live Webcam Visual Reasoning (VLM) Monitor
 
+> This is the original design and progress log. Environment details and measurements refer to the
+> author's development machine (RTX 3070 Ti Laptop GPU, i7-12650H, Windows 11). For installing and
+> running the project, see [README.md](README.md).
+
 ## 1. Goal
 
 Build the **right-hand side** of the reference image below: a live webcam system that
@@ -35,11 +39,11 @@ Initial target scene: **me in front of the webcam**. The system should say thing
 
 ---
 
-## 2. Environment (verified 2026-10-22)
+## 2. Author's development environment (verified 2026-10-22)
 
 | Item | Value |
 |---|---|
-| Conda env | `envPyTorch` (Python 3.10.20) |
+| Conda env | the author's existing PyTorch env (Python 3.10.20) |
 | GPU | NVIDIA RTX 3070 Ti Laptop, **8 GB VRAM** |
 | torch / CUDA | 2.11.0+cu128, CUDA available ✅ |
 | transformers | 5.14.1 (supports Qwen-VL / SmolVLM via `AutoModelForImageTextToText`) |
@@ -56,14 +60,14 @@ Initial target scene: **me in front of the webcam**. The system should say thing
 - 8 GB VRAM means one VLM loaded at a time, kept to about ≤ 5 GB so there's headroom for activations.
 - Windows: use the `cv2.CAP_DSHOW` (or `CAP_MSMF`) backend. flash-attn isn't available, so use `attn_implementation="sdpa"`.
 - Expected new dependencies: **none required**. `qwen-vl-utils` is optional. Avoid changing package
-  versions in this shared env.
+  versions in the author's shared env.
 
 ---
 
 ## 3. Model choice
 
 All models sit behind a single `VLM` interface, so switching is a config change. **Phase 0 benchmarks
-these on this GPU and picks the default** based on latency and description quality.
+these on the author's GPU and picks the default** based on latency and description quality.
 
 | Role | Candidate | Precision | Est. VRAM | Why |
 |---|---|---|---|---|
@@ -154,43 +158,39 @@ The model is asked for JSON. The *values* are free natural language, not labels:
 ## 5. Project structure
 
 ```
-Monitoring/
-├── plan.md
-├── README.md                 # how to run (written in Phase 2)
-├── config.yaml               # camera index, model id, precision, intervals, thresholds, prompts
-├── requirements.txt          # documents what's used; nothing new to install
+VLM-Monitoring/                # project root
+├── run.py                     # entry point: load + warm model, open camera, serve; Ctrl+C shuts down in reverse
+├── config.yaml                # camera, model, change-detection and server settings
+├── requirements.txt           # dependencies (install a CUDA build of PyTorch first)
+├── README.md                  # setup and usage
+├── plan.md                    # this design and progress log
+├── docs/
+│   ├── reference-cv-vs-vlm.jpg  # the reference image (traditional CV vs. VLM)
+│   └── ProjectPage.png          # screenshot of the app
 ├── app/
-│   ├── __init__.py
-│   ├── config.py             # load/validate config.yaml
-│   ├── camera.py             # threaded capture, FrameBuffer, reconnect on failure
-│   ├── change.py             # ChangeDetector (imagehash / downscaled diff + debounce)
-│   ├── prompts.py            # system prompt, describe / ask / rules templates
-│   ├── parsing.py            # tolerant JSON extraction → Observation dataclass
-│   ├── reasoner.py           # worker thread: trigger logic, history, events, rule checks
-│   ├── state.py              # shared state: latest observation, event log, rules, pending Q
+│   ├── config.py              # load/validate config.yaml
+│   ├── camera.py              # threaded capture, newest-frame buffer, reconnect on failure
+│   ├── change.py              # ChangeDetector (downscaled block diff + settle time)
+│   ├── prompts.py             # system prompt; describe / what-changed / ask templates
+│   ├── parsing.py             # tolerant JSON parsing, incl. partial (streaming) replies
+│   ├── reasoner.py            # worker thread: when to look, describe, compare frames, answer questions
+│   ├── state.py               # shared state + WebSocket broadcaster
+│   ├── lifecycle.py           # system/memory report, model load, warm-up, offload
+│   ├── perf.py                # P-core pinning + process priority
+│   ├── server.py              # FastAPI: / , /stream (MJPEG), /ws, /api/ask, /api/control, /api/health
 │   ├── vlm/
-│   │   ├── __init__.py       # factory: build_vlm(config)
-│   │   ├── base.py           # VLM protocol: generate(image, messages) -> str
-│   │   ├── hf_vlm.py         # generic transformers AutoModelForImageTextToText backend
-│   │   └── mock.py           # fake VLM for UI / tests without a GPU
-│   ├── server.py             # FastAPI: / , /stream (MJPEG), /ws, /ask, /control, /health
-│   └── static/
-│       ├── index.html        # video + overlay bubbles + assessment panel + log + ask box
-│       ├── app.js
-│       └── style.css
+│   │   ├── base.py            # VLM protocol: generate(image(s), system, prompt, ...) -> Generation
+│   │   ├── hf_vlm.py          # transformers backend (static cache, streaming, early stop)
+│   │   └── mock.py            # fake VLM for UI / tests without a GPU
+│   └── static/                # index.html, app.js, style.css (the browser UI)
 ├── scripts/
-│   ├── check_camera.py       # Phase 0: open camera, report resolution/fps, save one frame
-│   ├── bench_vlm.py          # Phase 0: load each candidate, time N runs on sample images
-│   └── describe_once.py      # Phase 1: capture a frame, describe it, print to terminal
-└── tests/
-    ├── test_parsing.py
-    ├── test_change.py
-    └── test_reasoner.py      # uses mock VLM
+│   ├── check_camera.py        # open the webcam, report resolution/fps, save one frame
+│   ├── bench_vlm.py           # compare candidate models on sample images
+│   └── describe_once.py       # describe one frame (or answer one question) in the terminal
+└── tests/                     # pytest: parsing, change detection, reasoner (mock VLM)
 ```
 
-Run with:
-`C:/Users/aviav.NITRO-5/miniconda3/envs/envPyTorch/python.exe -m uvicorn app.server:app --port 8000`,
-then open http://localhost:8000.
+Run from the project root with `python run.py`, then open http://localhost:8000 (see README.md).
 
 ---
 
@@ -282,7 +282,7 @@ doing something.
 | Model returns invalid JSON | Tolerant parser with a raw-text fallback; never crash the loop |
 | transformers 5.x API drift | Use the generic `AutoModelForImageTextToText` + `AutoProcessor` with `apply_chat_template`, and verify in Phase 0 |
 | Webcam busy or wrong index on Windows | Backend fallback (DSHOW → MSMF), index in config, auto-reconnect |
-| Breaking the shared `envPyTorch` | Don't change installed versions. Any new package is noted here first |
+| Breaking the author's shared conda env | Don't change installed versions. Any new package is noted here first |
 | Privacy | Fully local, no frames written to disk unless debug saving is explicitly turned on |
 
 ## 9. Open decisions (defaults chosen; can change)
@@ -294,7 +294,7 @@ doing something.
 
 ## 10. Status and results (2026-10-23)
 
-**Built:** Phases 0–5. The app runs with `python -m uvicorn app.server:app --port 8000` (see README).
+**Built:** Phases 0–5. The app runs with `python run.py` from the project root (see README).
 **Not done:** Phase 6, plus the manual action-by-action evaluation from §7. Mask cases haven't been
 tested yet because no mask was on camera.
 
@@ -308,12 +308,12 @@ tested yet because no mask was on camera.
 | Qwen3.5-2B | dynamic cache, P-core pinned | 7.5 s | 0.8 s | ~53 | ~5.6 GB | Equally accurate, slightly more specific wording. Static cache not tried (would need another long compile); fast kernels need `flash-linear-attention` |
 
 ### Things learned along the way
-- **Decoding is limited by CPU launch speed on this laptop.** Each token launches about 2,000
+- **Decoding is limited by CPU launch speed on the author's laptop.** Each token launches about 2,000
   small kernels. When the GPU is starved it clocks down, which makes every kernel slower too.
   Two fixes:
   - compiled CUDA-graph decode (`static_cache`): about 9× faster
   - pinning to P-cores with high priority: about 2× faster without compiling
-- **First compile is slow.** It took about 50 min here; the inductor cache in
+- **First compile is slow.** It took about 50 min on the author's laptop; the inductor cache in
   `%TEMP%\torchinductor_<user>` brings later starts down to about 35 s from launch to first scene.
 - **Assistant prefill** `{"summary": "You` stops markdown fences and third-person wording
   ("A man in a white shirt…" became "You're wearing…").

@@ -10,8 +10,8 @@
 [![Model](https://img.shields.io/badge/Model-Qwen3--VL--2B--Instruct-615CED)](https://huggingface.co/Qwen/Qwen3-VL-2B-Instruct)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.141-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 <br>
-[![GPU](https://img.shields.io/badge/GPU-NVIDIA%208%20GB%20VRAM-76B900?logo=nvidia&logoColor=white)](#performance-notes-rtx-3070-ti-laptop-8-gb)
-[![Platform](https://img.shields.io/badge/Platform-Windows%2011-0078D4)](#run)
+[![GPU](https://img.shields.io/badge/GPU-NVIDIA%208%20GB%2B%20VRAM-76B900?logo=nvidia&logoColor=white)](#requirements)
+[![Platform](https://img.shields.io/badge/Tested%20on-Windows%2011-0078D4)](#requirements)
 [![Runs locally](https://img.shields.io/badge/Runs-100%25%20local-2EA44F)](#sightline)
 [![Tests](https://img.shields.io/badge/tests-pytest-0A9EDC?logo=pytest&logoColor=white)](tests)
 [![Last commit](https://img.shields.io/github/last-commit/ai-avinashkp/VLM-Monitoring)](https://github.com/ai-avinashkp/VLM-Monitoring/commits/main)
@@ -29,11 +29,36 @@ machine.
 The idea comes from the difference between traditional computer vision and vision-language models;
 see the reference image and full design in [plan.md](plan.md).
 
+## Requirements
+
+- **NVIDIA GPU with 8 GB VRAM or more:** the default model uses about 6 GB. Only `--model mock`
+  runs without a GPU, and it shows the UI with fake descriptions.
+- **A webcam.**
+- **Python 3.10+** with a CUDA build of PyTorch.
+- **About 5 GB of free disk space:** the model is downloaded from Hugging Face on the first run.
+- **Tested on Windows 11.** The code has Linux/macOS fallbacks (generic camera backend, no CPU
+  pinning) but hasn't been tested there.
+
+## Setup
+
+```bash
+git clone https://github.com/ai-avinashkp/VLM-Monitoring.git
+cd VLM-Monitoring                       # the project root: run every command below from here
+
+# a fresh environment (conda shown; venv works too)
+conda create -n vlm-monitoring python=3.10 -y
+conda activate vlm-monitoring
+
+# PyTorch with CUDA first (pick the CUDA version for your driver at https://pytorch.org)
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+pip install -r requirements.txt
+```
+
 ## Run
 
-```powershell
-conda activate envPyTorch
-cd D:\_Python\AL_ML\LLMs\Monitoring
+From the project root, with the environment activated:
+
+```bash
 python run.py
 ```
 
@@ -56,11 +81,19 @@ Press **`Ctrl+C`** in that terminal. Shutdown runs in reverse and is logged:
 2. Stop the reasoner (it finishes any model call in progress) and release the camera.
 3. Offload the model from the GPU (VRAM goes from about 6.0 GB back to about 1.2 GB) and exit.
 
-If that terminal is gone, this stops it from any PowerShell window. It skips the graceful steps,
-but Windows still frees the GPU memory when the process ends:
+If that terminal is gone, you can kill the process from another one. This skips the orderly
+steps, but the OS still frees the GPU memory when the process ends.
+
+Windows (PowerShell):
 
 ```powershell
 Get-CimInstance Win32_Process -Filter "Name='python.exe'" | Where-Object { $_.CommandLine -like '*run.py*' -or $_.CommandLine -like '*uvicorn*app.server*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+```
+
+Linux / macOS:
+
+```bash
+pkill -f "python run.py"
 ```
 
 `python -m uvicorn app.server:app --port 8000` also still works. It serves the page at once and
@@ -89,7 +122,11 @@ It re-describes the scene in three cases:
 
 Questions jump the queue, even while paused. Thresholds are in `config.yaml`.
 
-## Performance notes (RTX 3070 Ti Laptop, 8 GB)
+## Performance notes
+
+Measured on the author's laptop: RTX 3070 Ti Laptop GPU (8 GB), Intel i7-12650H, Windows 11.
+Expect different numbers on other hardware.
+
 | | Time |
 |---|---|
 | Summary on screen (streamed) | ~0.5–0.8 s |
@@ -102,11 +139,14 @@ Questions jump the queue, even while paused. Thresholds are in `config.yaml`.
 Two settings make this fast. Both are on by default:
 
 - **`model.static_cache`:** the decode step is compiled into CUDA graphs (about 17 ms/token
-  instead of about 150 ms/token). The **very first start compiles for a long time**; it took
-  about 50 min here. The result is cached in `%TEMP%\torchinductor_<user>`, and later starts take
-  about 35 s. If Disk Cleanup removes that folder, the next start compiles again.
-- **`server.boost_cpu`:** pins the process to the performance cores with high priority. Without
-  it, Windows may run the decode loop on an efficiency core, and the starved GPU clocks down.
+  instead of about 150 ms/token). The **very first start on a machine compiles for a long time**:
+  about 50 min on the author's laptop. PyTorch caches the result (`%TEMP%\torchinductor_<user>` on
+  Windows, `/tmp/torchinductor_<user>` on Linux), and later starts take about 35 s. If that folder is
+  cleared (e.g. by Disk Cleanup), the next start compiles again. Set `static_cache: false` in
+  `config.yaml` to skip compiling, at the cost of much slower generation.
+- **`server.boost_cpu`:** on hybrid Intel CPUs (P-cores + E-cores), pins the process to the
+  performance cores with high priority. Otherwise Windows may run the decode loop on an
+  efficiency core, and the starved GPU clocks down. On other CPUs it only raises the priority.
 
 ## Other models
 Set `model.id` in `config.yaml`:
@@ -115,7 +155,9 @@ Set `model.id` in `config.yaml`:
 - A 4B model needs `quantize_4bit: true` to fit.
 
 ## Scripts and tests
-```powershell
+Run these from the project root:
+
+```bash
 python scripts/check_camera.py                    # can the webcam be opened?
 python scripts/describe_once.py --ask "Am I wearing a mask?"
 python scripts/bench_vlm.py --images a.jpg b.jpg  # compare models

@@ -1,6 +1,6 @@
 camera:
   index: 0
-  backend: dshow        # dshow | msmf | any
+  backend: dshow        # dshow | msmf (Windows) | any (Linux/macOS); falls back to the others if it fails
   width: 1280
   height: 720
   fps: 30

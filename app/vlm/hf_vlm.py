@@ -81,7 +81,7 @@ class HFVLM:
 
         if static_cache and not quantize_4bit:
             # A fixed-size KV cache lets transformers compile the decode step into CUDA graphs.
-            # Without it a 2B model is launch-bound (~150 ms/token on this laptop, GPU mostly
+            # Without it a 2B model is launch-bound (~150 ms/token on an RTX 3070 Ti laptop, GPU mostly
             # idle and down-clocked); with it ~17 ms/token. The first compile is slow but is
             # cached on disk by torch inductor, so later starts take ~25 s.
             gc = self.model.generation_config
