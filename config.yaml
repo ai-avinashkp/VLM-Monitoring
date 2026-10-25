@@ -1,0 +1,29 @@
+camera:
+  index: 0
+  backend: dshow        # dshow | msmf | any
+  width: 1280
+  height: 720
+  fps: 30
+
+model:
+  id: Qwen/Qwen3-VL-2B-Instruct   # or Qwen/Qwen3.5-2B, or "mock" to run the UI without a GPU
+  dtype: bfloat16
+  quantize_4bit: false            # turn on for models >= 4B
+  image_side: 640                 # longest side sent to the model (448 fast / 640 balanced / 896 sharp)
+  max_new_tokens: 260
+  static_cache: true              # compiled decode with CUDA graphs: ~9x faster; first start compiles (slow, cached after)
+  max_cache_len: 2048
+
+reasoner:
+  heartbeat_s: 10       # re-describe at least this often
+  min_gap_s: 2.0        # never start two analyses closer than this
+  change_threshold: 22  # per-block change (0-255) vs the last analysed frame that counts as "scene changed"
+  motion_threshold: 6   # frame-to-frame change below this counts as "still"
+  settle_s: 0.6         # wait until you've been still this long before analysing a change
+
+server:
+  host: 127.0.0.1
+  port: 8000
+  stream_fps: 24
+  jpeg_quality: 80
+  boost_cpu: true       # pin to performance cores + high priority (big decode speedup on hybrid CPUs)
