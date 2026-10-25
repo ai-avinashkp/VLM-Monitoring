@@ -2,9 +2,16 @@
 
 ## 1. Goal
 
-Build the **right-hand side** of the reference image ([docs/reference-cv-vs-vlm.jpg](docs/reference-cv-vs-vlm.jpg)): a live webcam system that
+Build the **right-hand side** of the reference image below: a live webcam system that
 *reasons about* what it sees and describes it in natural language, instead of drawing fixed-class
 boxes with confidence scores.
+
+<p align="center">
+  <img src="docs/reference-cv-vs-vlm.jpg" alt="Traditional computer vision (labelled boxes with confidence scores) compared with a vision-language model (plain-language descriptions and a scene assessment)" width="900">
+  <br>
+  <em>Reference: traditional computer vision (left: pattern matching, fixed labels and scores) vs.
+  vision-language models (right: visual reasoning in sentences). This project builds the right side.</em>
+</p>
 
 Initial target scene: **me in front of the webcam**. The system should say things like:
 

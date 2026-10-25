@@ -1,10 +1,33 @@
-# Sightline: live visual reasoning on your webcam
+<div align="center">
+
+# Sightline
+
+**Live visual reasoning on your webcam with a local vision-language model**
+
+[![Python](https://img.shields.io/badge/Python-3.10-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.11%20%7C%20CUDA%2012.8-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/)
+[![Transformers](https://img.shields.io/badge/Transformers-5.14-FFD21E?logo=huggingface&logoColor=black)](https://github.com/huggingface/transformers)
+[![Model](https://img.shields.io/badge/Model-Qwen3--VL--2B--Instruct-615CED)](https://huggingface.co/Qwen/Qwen3-VL-2B-Instruct)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.141-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+<br>
+[![GPU](https://img.shields.io/badge/GPU-NVIDIA%208%20GB%20VRAM-76B900?logo=nvidia&logoColor=white)](#performance-notes-rtx-3070-ti-laptop-8-gb)
+[![Platform](https://img.shields.io/badge/Platform-Windows%2011-0078D4)](#run)
+[![Runs locally](https://img.shields.io/badge/Runs-100%25%20local-2EA44F)](#sightline)
+[![Tests](https://img.shields.io/badge/tests-pytest-0A9EDC?logo=pytest&logoColor=white)](tests)
+[![Last commit](https://img.shields.io/github/last-commit/ai-avinashkp/VLM-Monitoring)](https://github.com/ai-avinashkp/VLM-Monitoring/commits/main)
+
+<img src="docs/ProjectPage.png" alt="Sightline web app: live webcam with numbered speech bubbles, a Scene Assessment card, and a sidebar listing observations and what changed" width="100%">
+
+</div>
 
 A local vision-language model (Qwen3-VL-2B) watches your webcam and describes what it sees in
 plain sentences, for example *"You're wearing black-framed glasses"* or *"Your right hand is on
 your chin"*. It does not use fixed labels or confidence scores. It notices when something changes
 and answers questions about the live frame. Everything runs on your GPU, and no frames leave the
 machine.
+
+The idea comes from the difference between traditional computer vision and vision-language models;
+see the reference image and full design in [plan.md](plan.md).
 
 ## Run
 
